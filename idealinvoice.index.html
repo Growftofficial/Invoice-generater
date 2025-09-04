@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ideal Beauty Care Invoice</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+    .invoice-container { max-width: 700px; margin: auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+    .invoice-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; }
+    .header-left { margin-right: 15px; }
+    .business-info h2 { color: #d63384; font-size: 2em; margin: 0; }
+    .business-info p { margin: 0; font-size: 0.9em; color: #555; }
+    .header-right { text-align: right; }
+    .header-right h1 { color: #d63384; font-size: 2.5em; margin: 0; text-transform: uppercase; }
+    .header-right p { margin: 0; font-size: 0.9em; color: #555; }
+    
+    .customer-details h3 { color: #d63384; font-size: 1.2em; border-bottom: 2px solid #d63384; padding-bottom: 5px; margin-bottom: 15px; }
+    
+    input, select { width: 100%; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; color: #333; }
+    
+    .table-container table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .table-container th, .table-container td { padding: 12px; text-align: left; }
+    .table-container th { background-color: #d63384; color: white; border: none; }
+    .table-container th:nth-child(2) { text-align: right; }
+    .table-container td:nth-child(2) { text-align: right; }
+    .table-container td { border-bottom: 1px solid #eee; }
+    .table-container tr:last-child td { border-bottom: none; }
+    
+    .total-summary { margin-top: 30px; text-align: right; }
+    .total-summary p { font-size: 1.1em; margin: 5px 0; }
+    .total-summary .subtotal { color: #555; }
+    .total-summary .discount { color: #ff5722; }
+    .total-summary .final-total { font-size: 1.5em; color: #d63384; font-weight: bold; }
+    
+    .thankyou { text-align: center; margin-top: 30px; font-size: 1.1em; font-style: italic; color: #666; }
+    
+    button { background: #ff6699; color: white; border: none; padding: 12px; width: 100%; margin-top: 15px; cursor: pointer; border-radius: 4px; font-size: 1em; transition: background-color 0.3s; }
+    button:hover { background-color: #ff3366; }
+    
+    .lock-container { text-align: center; display: none; margin-top: 50px; }
+    .lock-container h2 { color: #d63384; }
+    .lock-container p { color: #555; }
+
+    .service-row { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; }
+    .service-row input, .service-row select { flex: 1; margin-bottom: 0; }
+    .service-row button { width: auto; padding: 5px 10px; margin-top: 0; background-color: #dc3545; }
+    .service-row button:hover { background-color: #c82333; }
+    
+    #settingsForm { display: none; }
+    #loginForm { text-align: center; }
+    
+    /* For Invoice Output */
+    #invoiceOutput { display: none; }
+
+    .blue-text {
+      color: #007bff !important;
+    }
+    .blue-bg {
+        background-color: #007bff !important;
+    }
+
+    /* --- Responsive CSS for Mobile --- */
+    @media (max-width: 600px) {
+        body {
+            padding: 10px;
+        }
+        .invoice-container {
+            padding: 15px;
+            box-shadow: none;
+        }
+        .invoice-header {
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .header-left, .header-right {
+            text-align: center;
+            margin: 0;
+        }
+        .business-info h2 {
+            font-size: 1.5em;
+        }
+        .header-right h1 {
+            font-size: 2em;
+        }
+        input, select {
+            font-size: 1em;
+        }
+        button {
+            padding: 10px;
+            font-size: 0.9em;
+        }
+        .service-row {
+            flex-direction: column;
+            gap: 5px;
+        }
+        .service-row input, .service-row select, .service-row button {
+            width: 100%;
+        }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <div id="loginForm">
+        <h2>Enter Password to Use Tool</h2>
+        <input type="password" id="loginPassword" placeholder="Enter Password">
+        <button onclick="login()">Enter Tool</button>
+        <p id="loginError" style="color:red;"></p>
+    </div>
+
+    <div id="mainForm" style="display:none;">
+      <input type="text" id="custName" placeholder="Customer Name">
+      <input type="text" id="custPhone" placeholder="Phone Number">
+      <input type="text" id="custAddress" placeholder="Address">
+      <input type="date" id="invoiceDate">
+      <input type="number" id="invoiceNum" placeholder="Invoice Number" readonly>
+      
+      <h3>Services</h3>
+      <div id="serviceList">
+      </div>
+      <button onclick="addService()">+ Add Service</button>
+
+      <label for="discount">Discount (%):</label>
+      <input type="number" id="discount" value="0" min="0" max="100">
+      
+      <button onclick="generateInvoice()">Generate Invoice</button>
+      <button onclick="downloadPDF()">Download PDF</button>
+      <button onclick="downloadImage()">Download Image</button>
+      <button onclick="sendWhatsApp()">Send via WhatsApp</button>
+      <button onclick="showSettings()">Settings</button>
+    </div>
+
+    <div id="settingsForm" style="display:none;">
+      <h3>Manage Services</h3>
+      <div id="settingsServiceList"></div>
+      <button onclick="addSettingsService()">+ Add New Service</button>
+      <button onclick="saveSettings()">Save Changes</button>
+      <button onclick="hideSettings()">Back to Invoice</button>
+    </div>
+
+    <div id="lockScreen" class="lock-container" style="display:none;">
+        <h2>Tool Locked</h2>
+        <p>You have reached the invoice limit. Please enter the password to unlock.</p>
+        <input type="password" id="passwordInput" placeholder="Enter Password">
+        <button onclick="unlockTool()">Unlock</button>
+        <p id="lockError" style="color:red;"></p>
+    </div>
+
+    <div id="invoiceOutput" style="display:none;">
+      <div class="invoice-header">
+        <div class="header-left">
+          <div class="business-info">
+            <h2>IDEAL BEAUTY CARE</h2>
+            <p>Mrs. Sonal Yashwante</p>
+            <p>Nanasaheb falke complex,pune-nagar road, karegaon shirur,pune.</p>
+          </div>
+        </div>
+        <div class="header-right">
+          <h1>INVOICE</h1>
+          <p>Date: <span id="outputDate"></span></p>
+          <p>Time: <span id="outputTime"></span></p>
+          <p>Invoice No: <span id="outputInvoiceNum"></span></p>
+        </div>
+      </div>
+      
+      <div class="customer-details">
+        <h3>INVOICE TO:</h3>
+        <p>Name: <span id="outputName"></span></p>
+        <p>Address: <span id="outputAddress"></span></p>
+        <p>Phone: <span id="outputPhone"></span></p>
+      </div>
+
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>SERVICE</th>
+              <th style="text-align: right;">PRICE</th>
+            </tr>
+          </thead>
+          <tbody id="invoiceTableBody">
+            </tbody>
+        </table>
+      </div>
+      
+      <div class="total-summary">
+        <p class="subtotal">Sub-total: INR. <span id="outputSubTotal"></span></p>
+        <p class="discount">Discount: -INR. <span id="outputDiscount"></span></p>
+        <p class="final-total">TOTAL: INR. <span id="outputFinalTotal"></span></p>
+      </div>
+      
+      <div class="thankyou">
+        Thank you for choosing Ideal Beauty Care. We look forward to serving you again!
+      </div>
+    </div>
+  </div>
+  
+  <datalist id="servicesDatalist"></datalist>
+
+  <script>
+    let invoiceData = null;
+    const LOGIN_PASSWORD = 'Growft@ideal';
+    const UNLOCK_PASSWORD = 'Growft@123';
+    let servicesList = [];
+    
+    function login() {
+        const password = document.getElementById('loginPassword').value;
+        const errorMsg = document.getElementById('loginError');
+        if (password === LOGIN_PASSWORD) {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('mainForm').style.display = 'block';
+            errorMsg.textContent = "";
+        } else {
+            errorMsg.textContent = "Incorrect password. Please try again.";
+        }
+    }
+
+    function loadServices() {
+        const savedServices = localStorage.getItem('servicesList');
+        if (savedServices) {
+            servicesList = JSON.parse(savedServices);
+        } else {
+            servicesList = [
+                // Services from the rate card image
+                { name: "Four Head", price: 10 },
+                { name: "Uper lips", price: 10 },
+                { name: "Eyebrow", price: 30 },
+                { name: "Herbal Bleach", price: 300 },
+                { name: "Oxy Bleach", price: 300 },
+                { name: "Gold Bleach", price: 300 },
+                { name: "Herbal Cleanup", price: 200 },
+                { name: "Fruit Cleanup", price: 200 },
+                { name: "Papaya Cleanup", price: 200 },
+                { name: "Gold Cleanup", price: 300 },
+                { name: "Diamond Cleanup", price: 300 },
+                { name: "Pearl Cleanup", price: 350 },
+                { name: "Ioning Straightening", price: 400 },
+                { name: "Curley", price: 200 },
+                { name: "Blow dry", price: 200 },
+                { name: "Hair Wash", price: 200 },
+                { name: "Herabal Facial", price: 450 },
+                { name: "Fruit Facial", price: 500 },
+                { name: "Papaya Facial", price: 500 },
+                { name: "Gold Facial", price: 600 },
+                { name: "Pearl Facial", price: 600 },
+                { name: "Diamond Facial", price: 600 },
+                { name: "VICC Facial", price: 650 },
+                { name: "Aroma Facial", price: 1000 },
+                { name: "0.3 Facial", price: 2000 },
+                { name: "Lotus", price: 1000 },
+                { name: "Green Tea", price: 1000 },
+                { name: "Zara Diamond", price: 1000 },
+                { name: "Zara 24K Gold", price: 1000 },
+                { name: "Rich Feel", price: 1000 },
+                { name: "D-Tan", price: 1000 },
+                { name: "Rica White Chocolate", price: 450 },
+                { name: "Chocolate", price: 150 },
+                { name: "Honey", price: 150 },
+                { name: "Cream Wax", price: 300 },
+                { name: "Film Wax", price: 400 },
+                { name: "Full Face Wax", price: 150 },
+            ];
+            saveServices();
+        }
+        populateDatalist();
+    }
+
+    function saveServices() {
+        localStorage.setItem('servicesList', JSON.stringify(servicesList));
+    }
+
+    window.onload = function() {
+        loadServices();
+        const isLocked = localStorage.getItem('isLocked');
+        if (isLocked === 'true') {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('lockScreen').style.display = 'block';
+        } else {
+            // FIX: Check if invoiceNumber exists, if not, initialize it.
+            let currentNum = parseInt(localStorage.getItem('invoiceNumber'));
+            if (isNaN(currentNum)) {
+                currentNum = 100; // Default value if not found
+                localStorage.setItem('invoiceNumber', currentNum);
+            }
+            document.getElementById('invoiceNum').value = currentNum;
+        }
+        
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        let mm = today.getMonth() + 1;
+        let dd = today.getDate();
+
+        if (dd < 10) dd = '0' + dd;
+        if (mm < 10) mm = '0' + mm;
+
+        const formattedDate = `${yyyy}-${mm}-${dd}`;
+        document.getElementById('invoiceDate').value = formattedDate;
+    }
+
+    function addService() {
+      const serviceListDiv = document.getElementById('serviceList');
+      const serviceRow = document.createElement('div');
+      serviceRow.className = 'service-row';
+      
+      const searchInput = document.createElement('input');
+      searchInput.type = 'text';
+      searchInput.placeholder = 'Search or enter service name';
+      searchInput.setAttribute('list', 'servicesDatalist');
+      searchInput.className = 'service-search';
+      
+      const priceInput = document.createElement('input');
+      priceInput.type = 'number';
+      priceInput.placeholder = 'Price';
+      priceInput.className = 'service-price';
+      priceInput.readOnly = false;
+
+      const deleteButton = document.createElement('button');
+      deleteButton.textContent = '-';
+      deleteButton.onclick = function() { deleteServiceRow(this); };
+      
+      serviceRow.appendChild(searchInput);
+      serviceRow.appendChild(priceInput);
+      serviceRow.appendChild(deleteButton);
+      serviceListDiv.appendChild(serviceRow);
+
+      searchInput.addEventListener('input', function() {
+        updatePriceFromSearch(searchInput, priceInput);
+      });
+    }
+    
+    function populateDatalist() {
+        const datalist = document.getElementById('servicesDatalist');
+        datalist.innerHTML = '';
+        servicesList.forEach(service => {
+            const option = document.createElement('option');
+            option.value = service.name;
+            datalist.appendChild(option);
+        });
+    }
+
+    function updatePriceFromSearch(searchInput, priceInput) {
+      const selectedName = searchInput.value;
+      const foundService = servicesList.find(service => service.name === selectedName);
+      if (foundService) {
+        priceInput.value = foundService.price.toFixed(2);
+        priceInput.readOnly = true;
+      } else {
+        priceInput.value = '';
+        priceInput.readOnly = false;
+      }
+    }
+
+    function deleteServiceRow(button) {
+        button.parentElement.remove();
+    }
+
+    function lockTool() {
+        document.getElementById('mainForm').style.display = 'none';
+        document.getElementById('settingsForm').style.display = 'none';
+        document.getElementById('lockScreen').style.display = 'block';
+        localStorage.setItem('isLocked', 'true');
+    }
+
+    function unlockTool() {
+        const password = document.getElementById('passwordInput').value;
+        const errorMsg = document.getElementById('lockError');
+        if (password === UNLOCK_PASSWORD) {
+            document.getElementById('mainForm').style.display = 'block';
+            document.getElementById('lockScreen').style.display = 'none';
+            localStorage.setItem('isLocked', 'false');
+            errorMsg.textContent = "";
+        } else {
+            errorMsg.textContent = "Incorrect password. Please try again.";
+        }
+    }
+
+    function generateInvoice() {
+      // Fix: Read the current invoice number from the displayed input field, not from local storage.
+      let currentNum = parseInt(document.getElementById('invoiceNum').value) || 100;
+      const newInvoiceNum = currentNum + 1;
+      
+      if (newInvoiceNum > 1200) {
+          alert("Invoice limit (1200) reached. The tool will now lock.");
+          lockTool();
+          return;
+      }
+
+      localStorage.setItem('invoiceNumber', newInvoiceNum);
+      document.getElementById('invoiceNum').value = newInvoiceNum;
+
+      const name = document.getElementById('custName').value;
+      const phone = document.getElementById('custPhone').value;
+      const address = document.getElementById('custAddress').value;
+      const date = document.getElementById('invoiceDate').value;
+      
+      const discountPercent = parseFloat(document.getElementById('discount').value) || 0;
+
+      const serviceRows = document.querySelectorAll('#serviceList .service-row');
+      
+      let total = 0;
+      const tableBody = document.getElementById('invoiceTableBody');
+      tableBody.innerHTML = '';
+      let services = [];
+
+      let isManualInvoice = false;
+
+      serviceRows.forEach(row => {
+        const serviceName = row.querySelector('.service-search').value;
+        const price = parseFloat(row.querySelector('.service-price').value) || 0;
+
+        const foundService = servicesList.find(s => s.name === serviceName);
+        if (!foundService) {
+          isManualInvoice = true;
+        }
+
+        if (serviceName && price > 0) {
+          const row = document.createElement('tr');
+          row.innerHTML = `<td>${serviceName}</td><td style="text-align: right;">INR. ${price.toFixed(2)}</td>`;
+          tableBody.appendChild(row);
+          
+          total += price;
+          services.push({ name: serviceName, price: price });
+        }
+      });
+
+      const discountAmount = (total * discountPercent) / 100;
+      const finalTotal = total - discountAmount;
+      
+      const now = new Date();
+      const time = now.toLocaleTimeString();
+
+      document.getElementById('outputName').textContent = name;
+      document.getElementById('outputPhone').textContent = phone;
+      document.getElementById('outputAddress').textContent = address;
+      document.getElementById('outputDate').textContent = date;
+      document.getElementById('outputTime').textContent = time;
+      document.getElementById('outputInvoiceNum').textContent = newInvoiceNum;
+      document.getElementById('outputSubTotal').textContent = total.toFixed(2);
+      document.getElementById('outputDiscount').textContent = discountAmount.toFixed(2);
+      document.getElementById('outputFinalTotal').textContent = finalTotal.toFixed(2);
+
+      const invoiceOutput = document.getElementById('invoiceOutput');
+      const invoiceHeader = invoiceOutput.querySelector('.invoice-header');
+      const totalSummary = invoiceOutput.querySelector('.total-summary');
+
+      if (isManualInvoice) {
+        invoiceHeader.querySelectorAll('h1, h2, p').forEach(el => el.classList.add('blue-text'));
+        invoiceOutput.querySelector('.table-container th').classList.add('blue-bg');
+        totalSummary.querySelector('.final-total').classList.add('blue-text');
+      } else {
+        invoiceHeader.querySelectorAll('h1, h2, p').forEach(el => el.classList.remove('blue-text'));
+        invoiceOutput.querySelector('.table-container th').classList.remove('blue-bg');
+        totalSummary.querySelector('.final-total').classList.remove('blue-text');
+      }
+
+      invoiceData = {
+          customerName: name,
+          customerAddress: address,
+          customerPhone: phone,
+          invoiceDate: date,
+          invoiceTime: time,
+          invoiceNum: newInvoiceNum,
+          services: services,
+          subTotal: total,
+          discountAmount: discountAmount,
+          finalTotal: finalTotal,
+          isManual: isManualInvoice
+      };
+
+      document.getElementById('invoiceOutput').style.display = 'block';
+    }
+
+    function downloadPDF() {
+      if (!invoiceData) {
+        alert("Please generate the invoice first.");
+        return;
+      }
+      
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let yPos = 20;
+
+      const isManual = invoiceData.isManual;
+      const primaryColor = isManual ? [0, 123, 255] : [214, 51, 132]; 
+
+      doc.setFontSize(20);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("IDEAL BEAUTY CARE", 105, yPos, { align: 'center' });
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text("Mrs. Sonal Yashwante", 105, yPos + 8, { align: 'center' });
+      doc.text("Nanasaheb falke complex,pune-nagar road, karegaon shirur,pune.", 105, yPos + 13, { align: 'center' });
+      
+      yPos = 50;
+      doc.setFontSize(30);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("INVOICE", 180, yPos, { align: 'right' });
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Date: ${invoiceData.invoiceDate}`, 180, yPos + 8, { align: 'right' });
+      doc.text(`Time: ${invoiceData.invoiceTime}`, 180, yPos + 13, { align: 'right' });
+      doc.text(`Invoice No: ${invoiceData.invoiceNum}`, 180, yPos + 18, { align: 'right' });
+
+      yPos = 70;
+      doc.line(20, yPos, 190, yPos);
+
+      yPos += 10;
+      doc.setFontSize(12);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text("INVOICE TO:", 20, yPos);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.text(`Name: ${invoiceData.customerName}`, 20, yPos + 7);
+      doc.text(`Address: ${invoiceData.customerAddress}`, 20, yPos + 12);
+      doc.text(`Phone: ${invoiceData.customerPhone}`, 20, yPos + 17);
+
+      yPos = 105;
+      
+      doc.setFontSize(12);
+      doc.setTextColor(255, 255, 255);
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(20, yPos, 170, 10, 'F');
+      doc.text("SERVICE", 25, yPos + 7);
+      doc.text("PRICE", 180, yPos + 7, { align: 'right' });
+
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+
+      invoiceData.services.forEach(service => {
+        if (service.name && service.price) {
+          doc.text(service.name, 25, yPos + 7);
+          doc.text(`INR. ${service.price.toFixed(2)}`, 180, yPos + 7, { align: 'right' });
+          yPos += 10;
+        }
+      });
+
+      yPos += 10;
+      doc.line(20, yPos, 190, yPos);
+
+      yPos += 5;
+      doc.setFontSize(10);
+      doc.text(`Sub-total: INR. ${invoiceData.subTotal.toFixed(2)}`, 180, yPos, { align: 'right' });
+      yPos += 5;
+      doc.text(`Discount: -INR. ${invoiceData.discountAmount.toFixed(2)}`, 180, yPos, { align: 'right' });
+      yPos += 10;
+      doc.setFontSize(15);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text(`TOTAL: INR. ${invoiceData.finalTotal.toFixed(2)}`, 180, yPos, { align: 'right' });
+
+      yPos += 20;
+      doc.setFontSize(10);
+      doc.setTextColor(102, 102, 102);
+      doc.text("Thank you for choosing Ideal Beauty Care. We look forward to serving you again!", 105, yPos, { align: 'center' });
+      
+      doc.save(`Ideal_Invoice_${invoiceData.invoiceNum}.pdf`);
+    }
+
+    function downloadImage() {
+      if (!invoiceData) {
+        alert("Please generate the invoice first.");
+        return;
+      }
+      
+      const invoiceElement = document.getElementById('invoiceOutput');
+      
+      invoiceElement.style.display = 'block';
+      invoiceElement.style.position = 'absolute';
+      invoiceElement.style.left = '0';
+      invoiceElement.style.top = '0';
+      invoiceElement.style.width = '100%';
+      invoiceElement.style.padding = '50px';
+      invoiceElement.style.boxSizing = 'border-box';
+      
+      html2canvas(invoiceElement, {
+        scale: 2, 
+        useCORS: true,
+        windowHeight: invoiceElement.scrollHeight
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/jpeg', 1.0); 
+        const link = document.createElement('a');
+        link.href = imgData;
+        link.download = `Ideal_Invoice_${invoiceData.invoiceNum}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        invoiceElement.style.display = 'none';
+        invoiceElement.style.position = 'static';
+        invoiceElement.style.width = 'auto';
+        invoiceElement.style.padding = '0';
+      });
+    }
+
+    function sendWhatsApp() {
+      const phone = document.getElementById('custPhone').value.replace(/\D/g, '').slice(-10);
+      if (phone.length !== 10 || !invoiceData) {
+        alert("Please enter valid phone and generate invoice first.");
+        return;
+      }
+      const invoiceText = `Hello ${invoiceData.customerName},\nYour invoice dated ${invoiceData.invoiceDate} (Invoice #${invoiceData.invoiceNum}):\n${invoiceData.services.map(s => `${s.name} – INR. ${s.price.toFixed(2)}`).join('\n')}\nDiscount: ${((invoiceData.discountAmount / invoiceData.subTotal) * 100).toFixed(0)}%\nTotal: INR. ${invoiceData.finalTotal.toFixed(2)}\nThank you for choosing Ideal Beauty Care, Karegaon.`;
+      
+      const link = `https://wa.me/91${phone}?text=${encodeURIComponent(invoiceText)}`;
+      window.open(link, '_blank');
+    }
+
+    function showSettings() {
+      document.getElementById('mainForm').style.display = 'none';
+      document.getElementById('invoiceOutput').style.display = 'none';
+      document.getElementById('settingsForm').style.display = 'block';
+      renderSettingsList();
+    }
+
+    function hideSettings() {
+      document.getElementById('settingsForm').style.display = 'none';
+      document.getElementById('mainForm').style.display = 'block';
+    }
+
+    function renderSettingsList() {
+      const settingsListDiv = document.getElementById('settingsServiceList');
+      settingsListDiv.innerHTML = '';
+      servicesList.forEach((service, index) => {
+        const serviceRow = document.createElement('div');
+        serviceRow.className = 'service-row';
+        serviceRow.innerHTML = `
+          <input type="text" value="${service.name}" class="settings-service-name">
+          <input type="number" value="${service.price}" class="settings-service-price">
+          <button onclick="removeSettingsService(${index})">-</button>
+        `;
+        settingsListDiv.appendChild(serviceRow);
+      });
+    }
+
+    function addSettingsService() {
+      const settingsListDiv = document.getElementById('settingsServiceList');
+      const serviceRow = document.createElement('div');
+      serviceRow.className = 'service-row';
+      serviceRow.innerHTML = `
+        <input type="text" placeholder="New Service Name" class="settings-service-name">
+        <input type="number" placeholder="Price" class="settings-service-price">
+        <button onclick="removeSettingsService(this.parentElement)">-</button>
+      `;
+      settingsListDiv.appendChild(serviceRow);
+    }
+    
+    function removeSettingsService(elementOrIndex) {
+      if (typeof elementOrIndex === 'number') {
+        servicesList.splice(elementOrIndex, 1);
+        saveServices();
+        renderSettingsList();
+      } else {
+        elementOrIndex.remove();
+      }
+    }
+
+    function saveSettings() {
+      const newServices = [];
+      const serviceRows = document.querySelectorAll('#settingsServiceList .service-row');
+      serviceRows.forEach(row => {
+        const nameInput = row.querySelector('.settings-service-name');
+        const priceInput = row.querySelector('.settings-service-price');
+        if (nameInput.value && priceInput.value) {
+          newServices.push({
+            name: nameInput.value,
+            price: parseFloat(priceInput.value)
+          });
+        }
+      });
+      servicesList = newServices;
+      saveServices();
+      populateDatalist();
+      alert("Services saved successfully!");
+      hideSettings();
+    }
+  </script>
+</body>
+</html>
